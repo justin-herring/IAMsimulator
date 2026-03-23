@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} — IAM Simulator{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-1">
+        <li class="breadcrumb-item"><a href="{{ url_for('groups_list') }}">Groups</a></li>
+        <li class="breadcrumb-item active">{{ group.name }}</li>
+      </ol>
+    </nav>
+    <h4 class="mb-0"><i class="bi bi-people me-2"></i>{{ group.name }}</h4>
+    <small class="text-muted">{{ group.description or '' }}</small>
+  </div>
+  <form method="POST" action="{{ url_for('group_delete', group_id=group.id) }}"
+        onsubmit="return confirm('Delete group {{ group.name }}?')">
+    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+  </form>
+</div>
+
+<div class="row g-3">
+  <!-- Members -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header border-0 fw-semibold d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-person me-2"></i>Members <span class="badge bg-secondary">{{ group.users|length }}</span></span>
+        <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#addUserModal">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for user in group.users %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <a href="{{ url_for('user_detail', user_id=user.id) }}" class="text-decoration-none fw-semibold">
+            <i class="bi bi-person me-2 text-muted"></i>{{ user.username }}
+          </a>
+          <form method="POST" action="{{ url_for('group_remove_user', group_id=group.id) }}" class="d-inline">
+            <input type="hidden" name="user_id" value="{{ user.id }}">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x"></i></button>
+          </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No members.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <!-- Attached Policies -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header border-0 fw-semibold d-flex justify-content-between align-items-center">
+        <span>
+          <i class="bi bi-file-text me-2"></i>Attached Policies
+          <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+                title="All members of this group inherit these policies. Adding a policy here automatically grants it to every member.">
+            <i class="bi bi-question-circle"></i>
+          </span>
+        </span>
+        <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#attachPolicyModal">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for policy in group.policies %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <a href="{{ url_for('policy_editor', policy_id=policy.id) }}" class="text-decoration-none fw-semibold">
+            <i class="bi bi-file-text me-2 text-muted"></i>{{ policy.name }}
+          </a>
+          <form method="POST" action="{{ url_for('group_detach_policy', group_id=group.id) }}" class="d-inline">
+            <input type="hidden" name="policy_id" value="{{ policy.id }}">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x"></i></button>
+          </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No policies attached.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add User to Group</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('group_add_user', group_id=group.id) }}">
+        <div class="modal-body">
+          <select name="user_id" class="form-select" required>
+            <option value="">Select a user…</option>
+            {% for u in all_users %}
+              {% if u not in group.users %}
+              <option value="{{ u.id }}">{{ u.username }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Attach Policy Modal -->
+<div class="modal fade" id="attachPolicyModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Attach Policy to Group</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('group_attach_policy', group_id=group.id) }}">
+        <div class="modal-body">
+          <select name="policy_id" class="form-select" required>
+            <option value="">Select a policy…</option>
+            {% for p in all_policies %}
+              {% if p not in group.policies %}
+              <option value="{{ p.id }}">{{ p.name }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Attach</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

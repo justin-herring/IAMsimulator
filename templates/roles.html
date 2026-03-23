@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Roles — IAM Simulator{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0">
+    <i class="bi bi-arrow-repeat me-2"></i>IAM Roles
+    <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+          title="A Role is an identity with permissions that can be ASSUMED by trusted entities (AWS services, users, other accounts). Unlike users, roles issue temporary credentials — making them more secure.">
+      <i class="bi bi-question-circle"></i>
+    </span>
+  </h4>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createRoleModal">
+    <i class="bi bi-plus-lg me-1"></i>Create Role
+  </button>
+</div>
+
+<div class="row g-3">
+  {% for role in roles %}
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm card-hover h-100">
+      <div class="card-body">
+        <h6 class="mb-1">
+          <a href="{{ url_for('role_detail', role_id=role.id) }}" class="text-decoration-none">
+            {{ role.name }}
+          </a>
+        </h6>
+        <p class="text-muted small mb-2">{{ role.description or '' }}</p>
+        <div class="mb-2">
+          {% set trust = role.trust_policy_parsed() %}
+          {% set principals = [] %}
+          {% for stmt in trust.get('Statement', []) %}
+            {% set principal = stmt.get('Principal', {}) %}
+            {% if principal is mapping %}
+              {% for k, v in principal.items() %}
+                {% if principals.append(k + ':' + (v if v is string else v[0])) %}{% endif %}
+              {% endfor %}
+            {% else %}
+              {% if principals.append(principal) %}{% endif %}
+            {% endif %}
+          {% endfor %}
+          <small class="text-muted">Trusted by: </small>
+          {% for p in principals %}
+            <span class="badge bg-light text-dark border small">{{ p }}</span>
+          {% endfor %}
+        </div>
+        <div class="d-flex flex-wrap gap-1">
+          {% for p in role.policies %}
+            <span class="badge bg-info text-dark small">{{ p.name }}</span>
+          {% else %}
+            <span class="text-muted small">No policies.</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="card-footer bg-transparent border-0 pt-0">
+        <a href="{{ url_for('role_detail', role_id=role.id) }}" class="btn btn-sm btn-outline-primary w-100">Manage</a>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col"><p class="text-muted">No roles yet.</p></div>
+  {% endfor %}
+</div>
+
+<!-- Create Role Modal -->
+<div class="modal fade" id="createRoleModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Create IAM Role</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('role_create') }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Role Name</label>
+            <input name="name" class="form-control" placeholder="e.g. LambdaExecutionRole" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Description</label>
+            <input name="description" class="form-control" placeholder="Optional">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Trust Policy (JSON)
+              <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+                    title="Defines WHO can assume this role. 'Service' trusts AWS services. 'AWS' trusts other accounts or users. Always follow least-privilege here too.">
+                <i class="bi bi-question-circle"></i>
+              </span>
+            </label>
+            <textarea name="trust_policy" class="form-control json-viewer" rows="8" required
+              id="newRoleTrustPolicy">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}</textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Role</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

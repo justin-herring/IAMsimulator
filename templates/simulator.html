@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}Access Simulator — IAM Simulator{% endblock %}
+{% block content %}
+<h4 class="mb-1"><i class="bi bi-play-circle me-2"></i>Access Simulator</h4>
+<p class="text-muted mb-4">
+  Simulates the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_testing-policies.html"
+  target="_blank">AWS IAM Policy Simulator</a>.
+  Enter a principal, an IAM action, and a resource ARN to find out if access would be allowed or denied.
+</p>
+
+<div class="row g-4">
+  <!-- Input form -->
+  <div class="col-md-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header border-0 fw-semibold"><i class="bi bi-sliders me-2"></i>Simulation Input</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">
+            Principal Type
+            <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+                  title="Users have long-term credentials. Roles issue temporary credentials and are assumed by services or other principals.">
+              <i class="bi bi-question-circle"></i>
+            </span>
+          </label>
+          <div class="btn-group w-100" role="group">
+            <input type="radio" class="btn-check" name="principalType" id="typeUser" value="user" checked>
+            <label class="btn btn-outline-primary" for="typeUser"><i class="bi bi-person me-1"></i>User</label>
+            <input type="radio" class="btn-check" name="principalType" id="typeRole" value="role">
+            <label class="btn btn-outline-primary" for="typeRole"><i class="bi bi-arrow-repeat me-1"></i>Role</label>
+          </div>
+        </div>
+
+        <div class="mb-3" id="userSelect">
+          <label class="form-label fw-semibold">User</label>
+          <select id="userId" class="form-select">
+            {% for u in users %}
+            <option value="{{ u.id }}">{{ u.username }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3 d-none" id="roleSelect">
+          <label class="form-label fw-semibold">Role</label>
+          <select id="roleId" class="form-select">
+            {% for r in roles %}
+            <option value="{{ r.id }}">{{ r.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">
+            Action
+            <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+                  title="IAM actions follow the format service:Action (e.g., s3:GetObject, ec2:DescribeInstances, billing:ViewBilling). Case-insensitive.">
+              <i class="bi bi-question-circle"></i>
+            </span>
+          </label>
+          <input id="action" class="form-control" placeholder="e.g. s3:GetObject" list="actionSuggestions">
+          <datalist id="actionSuggestions">
+            <option value="s3:GetObject">
+            <option value="s3:PutObject">
+            <option value="s3:ListBucket">
+            <option value="s3:DeleteObject">
+            <option value="ec2:DescribeInstances">
+            <option value="ec2:TerminateInstances">
+            <option value="ec2:RunInstances">
+            <option value="billing:ViewBilling">
+            <option value="ce:GetCostAndUsage">
+            <option value="logs:PutLogEvents">
+            <option value="iam:CreateUser">
+            <option value="iam:AttachUserPolicy">
+            <option value="lambda:InvokeFunction">
+            <option value="rds:DescribeDBInstances">
+          </datalist>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-semibold">
+            Resource ARN
+            <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+                  title="Amazon Resource Names (ARNs) uniquely identify AWS resources. Format: arn:partition:service:region:account-id:resource. Use * to match any resource.">
+              <i class="bi bi-question-circle"></i>
+            </span>
+          </label>
+          <input id="resource" class="form-control" placeholder="e.g. arn:aws:s3:::acme-reports/*" list="resourceSuggestions">
+          <datalist id="resourceSuggestions">
+            <option value="*">
+            <option value="arn:aws:s3:::acme-reports/*">
+            <option value="arn:aws:s3:::acme-reports">
+            <option value="arn:aws:ec2:us-east-1:*:instance/*">
+            <option value="arn:aws:logs:*:*:*">
+            <option value="arn:aws:lambda:us-east-1:*:function:*">
+            <option value="arn:aws:rds:us-east-1:*:db:*">
+          </datalist>
+        </div>
+
+        <button id="simulateBtn" class="btn btn-primary w-100" onclick="runSimulation()">
+          <i class="bi bi-play-fill me-1"></i>Simulate Access
+        </button>
+
+        <hr class="my-3">
+        <div class="small text-muted">
+          <strong>Quick tests:</strong>
+          <div class="d-flex flex-column gap-1 mt-2">
+            {% for user, action, resource, expected in [
+              ('bob', 's3:GetObject', 'arn:aws:s3:::acme-reports/q1.csv', 'ALLOW'),
+              ('bob', 'billing:ViewBilling', '*', 'DENY'),
+              ('carol', 'billing:ViewBilling', '*', 'ALLOW'),
+              ('alice', 'ec2:TerminateInstances', '*', 'ALLOW'),
+            ] %}
+            <button class="btn btn-sm btn-outline-secondary text-start"
+                    onclick="quickTest('{{ user }}', '{{ action }}', '{{ resource }}')">
+              <span class="badge {% if expected == 'ALLOW' %}badge-allow{% else %}badge-deny{% endif %} me-1">{{ expected }}</span>
+              {{ user }} → {{ action }}
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="col-md-7">
+    <div id="resultPlaceholder" class="card border-0 shadow-sm h-100 d-flex align-items-center justify-content-center text-muted">
+      <div class="text-center py-5">
+        <i class="bi bi-play-circle" style="font-size:3rem;"></i>
+        <p class="mt-3">Run a simulation to see the evaluation result.</p>
+      </div>
+    </div>
+
+    <div id="resultCard" class="d-none">
+      <!-- Decision banner -->
+      <div id="decisionBanner" class="card border-0 shadow-sm mb-3">
+        <div class="card-body d-flex align-items-center gap-3 p-4">
+          <div id="decisionIcon" style="font-size:2.5rem;"></div>
+          <div>
+            <div id="decisionText" class="fs-3 fw-bold"></div>
+            <div id="decisionReason" class="text-muted small"></div>
+            <div class="mt-1">
+              <code id="decisionPrincipal" class="small"></code>
+              <span class="text-muted small mx-1">→</span>
+              <code id="decisionAction" class="small"></code>
+              <span class="text-muted small mx-1">on</span>
+              <code id="decisionResource" class="small"></code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Evaluation trace -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-header border-0 fw-semibold">
+          <i class="bi bi-list-check me-2"></i>Evaluation Trace
+          <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+                title="Shows how AWS walked through each policy statement. This is the actual logic — explicit Deny wins, then explicit Allow, then implicit Deny.">
+            <i class="bi bi-question-circle"></i>
+          </span>
+        </div>
+        <div class="card-body" id="evalTrace" style="max-height:380px; overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Toggle user/role selector
+  document.querySelectorAll('input[name="principalType"]').forEach(r => {
+    r.addEventListener('change', () => {
+      document.getElementById('userSelect').classList.toggle('d-none', r.value !== 'user');
+      document.getElementById('roleSelect').classList.toggle('d-none', r.value !== 'role');
+    });
+  });
+
+  // Quick test buttons — find user by name
+  function quickTest(username, action, resource) {
+    document.getElementById('typeUser').checked = true;
+    document.getElementById('userSelect').classList.remove('d-none');
+    document.getElementById('roleSelect').classList.add('d-none');
+    // find user id by name via option text
+    const sel = document.getElementById('userId');
+    for (let opt of sel.options) {
+      if (opt.text === username) { sel.value = opt.value; break; }
+    }
+    document.getElementById('action').value = action;
+    document.getElementById('resource').value = resource;
+    runSimulation();
+  }
+
+  async function runSimulation() {
+    const principalType = document.querySelector('input[name="principalType"]:checked').value;
+    const principalId = principalType === 'user'
+      ? document.getElementById('userId').value
+      : document.getElementById('roleId').value;
+    const action   = document.getElementById('action').value.trim();
+    const resource = document.getElementById('resource').value.trim();
+
+    if (!action || !resource) {
+      alert('Please enter an action and resource.'); return;
+    }
+
+    const btn = document.getElementById('simulateBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Evaluating…';
+
+    try {
+      const res = await fetch('/simulator/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ principal_type: principalType, principal_id: principalId, action, resource })
+      });
+      const data = await res.json();
+      renderResult(data);
+    } catch(e) {
+      alert('Error: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>Simulate Access';
+    }
+  }
+
+  function renderResult(data) {
+    document.getElementById('resultPlaceholder').classList.add('d-none');
+    document.getElementById('resultCard').classList.remove('d-none');
+
+    const isAllow = data.decision === 'ALLOW';
+    const banner  = document.getElementById('decisionBanner');
+    banner.className = `card border-0 shadow-sm mb-3 ${isAllow ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10'}`;
+    document.getElementById('decisionIcon').textContent = isAllow ? '✅' : '🚫';
+    document.getElementById('decisionText').textContent = data.decision;
+    document.getElementById('decisionText').className   = `fs-3 fw-bold text-${isAllow ? 'success' : 'danger'}`;
+    document.getElementById('decisionReason').textContent = data.reason;
+    document.getElementById('decisionPrincipal').textContent = data.principal;
+    document.getElementById('decisionAction').textContent   = data.action;
+    document.getElementById('decisionResource').textContent = data.resource;
+
+    // Render trace
+    const trace = document.getElementById('evalTrace');
+    if (!data.steps || data.steps.length === 0) {
+      trace.innerHTML = '<p class="text-muted small">No policy statements evaluated (no policies attached).</p>';
+      return;
+    }
+    trace.innerHTML = data.steps.map(s => {
+      const cls = s.outcome === 'MATCHED_DENY' ? 'step-deny' :
+                  s.outcome === 'MATCHED_ALLOW' ? 'step-allow' : 'step-nomatch';
+      const icon = s.outcome === 'MATCHED_DENY' ? '🚫' :
+                   s.outcome === 'MATCHED_ALLOW' ? '✅' : '⬜';
+      return `<div class="${cls} ps-3 mb-2 py-1">
+        <div class="small fw-semibold">${icon} ${s.policy_name} — Statement [${s.statement_index}]
+          <span class="badge ${s.effect === 'Deny' ? 'bg-danger' : 'bg-success'} ms-1" style="font-size:.65rem;">${s.effect}</span>
+        </div>
+        <div class="small text-muted">${s.reason}</div>
+      </div>`;
+    }).join('');
+  }
+</script>
+{% endblock %}

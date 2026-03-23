@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Policies — IAM Simulator{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0">
+    <i class="bi bi-file-text me-2"></i>IAM Policies
+    <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+          title="A policy is a JSON document that defines permissions. It has Statements with Effect (Allow/Deny), Action, and Resource. AWS evaluates all attached policies together.">
+      <i class="bi bi-question-circle"></i>
+    </span>
+  </h4>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createPolicyModal">
+    <i class="bi bi-plus-lg me-1"></i>Create Policy
+  </button>
+</div>
+
+<div class="row g-3">
+  {% for policy in policies %}
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm card-hover h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <h6 class="mb-0">
+            <a href="{{ url_for('policy_editor', policy_id=policy.id) }}" class="text-decoration-none">
+              {{ policy.name }}
+            </a>
+          </h6>
+          <span class="badge {% if policy.policy_type == 'AWS_MANAGED' %}bg-warning text-dark{% else %}bg-primary{% endif %} small">
+            {{ policy.policy_type.replace('_', ' ') }}
+          </span>
+        </div>
+        <p class="text-muted small mb-2">{{ policy.description or 'No description.' }}</p>
+        <div class="d-flex flex-wrap gap-1 small text-muted">
+          <span><i class="bi bi-person me-1"></i>{{ policy.users|length }} users</span>
+          <span><i class="bi bi-people me-1"></i>{{ policy.groups|length }} groups</span>
+          <span><i class="bi bi-arrow-repeat me-1"></i>{{ policy.roles|length }} roles</span>
+        </div>
+      </div>
+      <div class="card-footer bg-transparent border-0 pt-0">
+        <a href="{{ url_for('policy_editor', policy_id=policy.id) }}" class="btn btn-sm btn-outline-primary w-100">
+          <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col"><p class="text-muted">No policies yet.</p></div>
+  {% endfor %}
+</div>
+
+<!-- Create Policy Modal -->
+<div class="modal fade" id="createPolicyModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Create IAM Policy</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('policy_create') }}">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Policy Name</label>
+              <input name="name" class="form-control" placeholder="e.g. S3BucketReadOnly" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Description</label>
+              <input name="description" class="form-control" placeholder="Optional">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">
+                Policy Document (JSON)
+                <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+                      title="The JSON policy document. Must have Version and Statement array. Each statement needs Effect, Action, and Resource.">
+                  <i class="bi bi-question-circle"></i>
+                </span>
+              </label>
+              <textarea name="policy_document" class="form-control json-viewer" rows="10" required
+                id="newPolicyDocument">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::my-bucket/*"
+    }
+  ]
+}</textarea>
+              <div id="newPolicyJsonError" class="text-danger small mt-1 d-none">Invalid JSON</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Policy</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

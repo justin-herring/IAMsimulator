@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{{ policy.name }} — IAM Simulator{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-1">
+        <li class="breadcrumb-item"><a href="{{ url_for('policies_list') }}">Policies</a></li>
+        <li class="breadcrumb-item active">{{ policy.name }}</li>
+      </ol>
+    </nav>
+    <h4 class="mb-0"><i class="bi bi-file-text me-2"></i>{{ policy.name }}</h4>
+    <span class="badge {% if policy.policy_type == 'AWS_MANAGED' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
+      {{ policy.policy_type.replace('_', ' ') }}
+    </span>
+  </div>
+  <form method="POST" action="{{ url_for('policy_delete', policy_id=policy.id) }}"
+        onsubmit="return confirm('Delete policy {{ policy.name }}?')">
+    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+  </form>
+</div>
+
+{% if health_warnings %}
+<div class="alert alert-warning border-0 shadow-sm mb-4">
+  <div class="fw-semibold mb-2"><i class="bi bi-exclamation-triangle me-2"></i>Security Warnings</div>
+  {% for w in health_warnings %}
+  <div class="small">• {{ w }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <!-- Editor -->
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header border-0 fw-semibold">
+        <i class="bi bi-pencil me-2"></i>Policy Document
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('policy_update', policy_id=policy.id) }}">
+          <textarea name="policy_document" id="policyDocument"
+                    class="form-control json-viewer"
+                    rows="18" style="font-size:.82rem;" required>{{ policy.policy_document }}</textarea>
+          <div id="jsonError" class="text-danger small mt-1 d-none">Invalid JSON — fix before saving.</div>
+          <button type="submit" class="btn btn-primary mt-3" id="saveBtn">
+            <i class="bi bi-save me-1"></i>Save Changes
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attached to -->
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header border-0 fw-semibold small">
+        <i class="bi bi-person me-2"></i>Attached to Users
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for u in policy.users %}
+        <li class="list-group-item py-1 small">
+          <a href="{{ url_for('user_detail', user_id=u.id) }}" class="text-decoration-none">{{ u.username }}</a>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted small">None</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header border-0 fw-semibold small">
+        <i class="bi bi-people me-2"></i>Attached to Groups
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for g in policy.groups %}
+        <li class="list-group-item py-1 small">
+          <a href="{{ url_for('group_detail', group_id=g.id) }}" class="text-decoration-none">{{ g.name }}</a>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted small">None</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="card border-0 shadow-sm">
+      <div class="card-header border-0 fw-semibold small">
+        <i class="bi bi-arrow-repeat me-2"></i>Attached to Roles
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for r in policy.roles %}
+        <li class="list-group-item py-1 small">
+          <a href="{{ url_for('role_detail', role_id=r.id) }}" class="text-decoration-none">{{ r.name }}</a>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted small">None</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const ta = document.getElementById('policyDocument');
+  const err = document.getElementById('jsonError');
+  const saveBtn = document.getElementById('saveBtn');
+  ta.addEventListener('input', () => {
+    try { JSON.parse(ta.value); err.classList.add('d-none'); saveBtn.disabled = false; }
+    catch(e) { err.classList.remove('d-none'); saveBtn.disabled = true; }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ role.name }} — IAM Simulator{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-1">
+        <li class="breadcrumb-item"><a href="{{ url_for('roles_list') }}">Roles</a></li>
+        <li class="breadcrumb-item active">{{ role.name }}</li>
+      </ol>
+    </nav>
+    <h4 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>{{ role.name }}</h4>
+    <small class="text-muted">{{ role.description or '' }}</small>
+  </div>
+  <form method="POST" action="{{ url_for('role_delete', role_id=role.id) }}"
+        onsubmit="return confirm('Delete role {{ role.name }}?')">
+    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+  </form>
+</div>
+
+<div class="row g-3">
+  <!-- Trust Policy -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header border-0 fw-semibold">
+        <i class="bi bi-shield-check me-2"></i>Trust Policy
+        <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+              title="The trust policy answers: WHO can assume this role? It's a separate document from permission policies. Always restrict the Principal to only the entities that need access.">
+          <i class="bi bi-question-circle"></i>
+        </span>
+      </div>
+      <div class="card-body">
+        <pre class="json-viewer mb-0">{{ role.trust_policy }}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attached Policies -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header border-0 fw-semibold d-flex justify-content-between align-items-center">
+        <span>
+          <i class="bi bi-file-text me-2"></i>Permission Policies
+          <span class="tooltip-icon ms-1" data-bs-toggle="tooltip"
+                title="These define WHAT the role can do once assumed. Keep roles tightly scoped — a Lambda role probably only needs logs:PutLogEvents and specific service actions, not s3:*.">
+            <i class="bi bi-question-circle"></i>
+          </span>
+        </span>
+        <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#attachPolicyModal">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for policy in role.policies %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <a href="{{ url_for('policy_editor', policy_id=policy.id) }}" class="text-decoration-none fw-semibold">
+            <i class="bi bi-file-text me-2 text-muted"></i>{{ policy.name }}
+          </a>
+          <form method="POST" action="{{ url_for('role_detach_policy', role_id=role.id) }}" class="d-inline">
+            <input type="hidden" name="policy_id" value="{{ policy.id }}">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x"></i></button>
+          </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No policies attached.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <a href="{{ url_for('simulator') }}?role_id={{ role.id }}" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-play-circle me-1"></i>Test this role in Simulator
+    </a>
+  </div>
+</div>
+
+<!-- Attach Policy Modal -->
+<div class="modal fade" id="attachPolicyModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Attach Policy to Role</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('role_attach_policy', role_id=role.id) }}">
+        <div class="modal-body">
+          <select name="policy_id" class="form-select" required>
+            <option value="">Select a policy…</option>
+            {% for p in all_policies %}
+              {% if p not in role.policies %}
+              <option value="{{ p.id }}">{{ p.name }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Attach</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
