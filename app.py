@@ -559,8 +559,9 @@ def audit_log():
 # Entry point
 # ---------------------------------------------------------------------------
 
+with app.app_context():
+    db.create_all()
+    seed_data.seed(app)
+
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-        seed_data.seed(app)
     app.run(debug=True, port=5000)
